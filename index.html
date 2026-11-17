@@ -3,194 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Crypto Tycoon</title>
+    <title>Metropolis Tycoon</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --bg: #0a0f18; --panel: #121b28; --accent: #00ffcc; --gold: #ffcc00; --danger: #ff3b30; }
-        body { margin: 0; background: var(--bg); color: white; font-family: -apple-system, sans-serif; overflow: hidden; }
+        :root { --bg: #070a10; --panel: #121b28; --accent: #00ffcc; --gold: #ffcc00; --danger: #ff3b30; }
+        * { box-sizing: border-box; user-select: none; }
+        body { margin: 0; background: var(--bg); color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        #cityCanvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        /* Верхняя панель */
+        .hud { padding: 15px; background: rgba(18, 27, 40, 0.9); backdrop-filter: blur(15px); display: flex; justify-content: space-between; align-items: center; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .balance { font-size: 28px; font-weight: 900; color: var(--gold); text-shadow: 0 0 10px rgba(255, 204, 0, 0.3); }
+        .crypto { font-size: 14px; color: var(--accent); font-weight: bold; }
         
-        .hud { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 10; display: flex; justify-content: space-between; }
-        .stats-box { background: rgba(18, 27, 40, 0.85); backdrop-filter: blur(15px); padding: 10px 15px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); }
-        .balance { font-size: 22px; font-weight: 900; color: var(--gold); }
-        .crypto { font-size: 14px; color: var(--accent); }
+        /* Кнопка меню */
+        .menu-btn { background: #1c2733; border: none; color: white; padding: 10px 15px; border-radius: 12px; font-size: 20px; cursor: pointer; }
         
-        .fab { position: absolute; bottom: 30px; right: 30px; width: 65px; height: 65px; border-radius: 50%; background: var(--accent); color: black; font-size: 30px; display: flex; align-items: center; justify-content: center; z-index: 20; box-shadow: 0 10px 20px rgba(0, 255, 204, 0.3); }
+        /* Игровое поле (Город) */
+        #game-area { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-        .bottom-panel { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(10, 15, 24, 0.95); backdrop-filter: blur(20px); padding: 15px; border-radius: 30px 30px 0 0; z-index: 10; transform: translateY(100%); transition: 0.3s; height: 70vh; display: flex; flex-direction: column; }
-        .bottom-panel.open { transform: translateY(0); }
+        /* Модальное окно (Меню) */
+        .modal { position: fixed; bottom: -100%; left: 0; right: 0; background: var(--panel); border-radius: 30px 30px 0 0; padding: 20px; transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 20; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal.open { bottom: 0; }
         
-        .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
-        .tab { flex: 1; padding: 10px; background: #1c2733; border-radius: 10px; text-align: center; font-size: 12px; font-weight: bold; color: #8b9eb0; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 12px; background: #1c2733; border-radius: 12px; text-align: center; font-weight: bold; color: #8b9eb0; cursor: pointer; transition: 0.2s; }
         .tab.active { background: var(--accent); color: black; }
 
-        .scroll-content { overflow-y: auto; flex: 1; padding-bottom: 20px; }
-        .hide { display: none !important; }
+        .content { overflow-y: auto; flex: 1; padding-bottom: 20px; display: none; }
+        .content.active { display: block; }
 
-        .card { background: #1c2733; border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .card-info h3 { margin: 0 0 5px 0; font-size: 15px; }
-        .card-info p { margin: 0; font-size: 11px; color: var(--accent); }
-        .card-price { font-weight: bold; color: var(--gold); text-align: right; }
+        .card { background: #1c2733; border-radius: 16px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); }
+        .card-info h3 { margin: 0 0 5px 0; font-size: 16px; }
+        .card-info p { margin: 0; font-size: 13px; color: var(--accent); }
+        .card-price { font-weight: bold; color: var(--gold); font-size: 16px; text-align: right; }
+        .card-btn { background: var(--accent); color: black; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; margin-top: 5px; cursor: pointer; width: 100%; }
+        .card-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-        .btn { background: var(--accent); color: black; border: none; padding: 10px 15px; border-radius: 10px; font-weight: bold; margin-top: 5px; width: 100%; }
-        .btn-danger { background: var(--danger); color: white; }
-        
         .input-group { display: flex; gap: 10px; margin-bottom: 10px; }
-        .input-group input { flex: 1; background: #1c2733; border: 1px solid #333; color: white; padding: 10px; border-radius: 10px; }
+        .input-group input { flex: 1; padding: 12px; border-radius: 10px; border: none; background: #1c2733; color: white; }
+        
+        .btn-sell { background: var(--danger); color: white; border: none; padding: 15px; border-radius: 15px; width: 100%; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
 
-        #toast { position: absolute; top: -60px; left: 50%; transform: translateX(-50%); background: var(--accent); color: black; padding: 10px 20px; border-radius: 20px; font-weight: bold; transition: 0.3s; z-index: 100; }
-        #toast.show { top: 70px; }
+        /* Уведомления */
+        #toast { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: var(--accent); color: black; padding: 12px 24px; border-radius: 30px; font-weight: bold; transition: 0.3s; z-index: 100; box-shadow: 0 5px 15px rgba(0, 255, 204, 0.3); }
+        #toast.show { top: 20px; }
     </style>
 </head>
 <body>
-    <canvas id="cityCanvas"></canvas>
     <div id="toast">Текст</div>
 
     <div class="hud">
-        <div class="stats-box">
-            <div class="balance" id="balance">0 ₽</div>
-            <div class="crypto" id="crypto">0.0 CR</div>
+        <div>
+            <div class="balance" id="ui-balance">0 ₽</div>
+            <div class="crypto" id="ui-crypto">0.0 CR</div>
         </div>
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
     </div>
 
-    <div class="fab" onclick="toggleMenu()">💼</div>
+    <div id="game-area">
+        <canvas id="cityCanvas"></canvas>
+    </div>
 
-    <div class="bottom-panel" id="menu">
+    <div class="modal" id="menu">
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('build')">🏗 Стройка</div>
-            <div class="tab" onclick="switchTab('p2p')">🤝 Рынок</div>
-            <div class="tab" onclick="switchTab('war')">⚔️ Война</div>
+            <div class="tab active" onclick="switchTab('build', this)">🏗 Стройка</div>
+            <div class="tab" onclick="switchTab('trade', this)">💰 Биржа</div>
         </div>
         
-        <div class="scroll-content" id="tab-build">
-            <!-- Стройка генерируется JS -->
-        </div>
-
-        <div class="scroll-content hide" id="tab-p2p">
-            <h4>Выставить лот (Крипта)</h4>
-            <div class="input-group">
-                <input type="number" id="sell-amount" placeholder="Кол-во CR">
-                <input type="number" id="sell-price" placeholder="Цена в ₽">
-            </div>
-            <button class="btn" onclick="sellP2P()">Выставить на продажу</button>
-            <hr style="border-color:#1c2733; margin: 15px 0;">
-            <h4>Лоты игроков</h4>
-            <div id="p2p-list"></div>
-        </div>
-
-        <div class="scroll-content hide" id="tab-war">
-            <div id="enemy-list"></div>
+        <div class="content active" id="tab-build"></div>
+        
+        <div class="content" id="tab-trade">
+            <h3 style="text-align:center;">Крипто-биржа</h3>
+            <p style="text-align:center; color:var(--accent); font-size:24px;" id="ui-market-price">100.00 ₽</p>
+            <p style="text-align:center; font-size:12px; color:#8b9eb0; margin-bottom:20px;">Курс меняется каждую секунду.</p>
+            <button class="btn-sell" onclick="sellAllCrypto()">Продать всю крипту</button>
         </div>
     </div>
 
     <script>
+        // --- ИНИЦИАЛИЗАЦИЯ TELEGRAM ---
         const tg = window.Telegram.WebApp;
-        tg.expand();
-        let state = { my_data: {balance:0, crypto:0}, p2p: [], assets: {} };
-        
-        const ws = new WebSocket(`ws://${window.location.host}/ws/${tg.initDataUnsafe.user.id}`);
-        ws.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            if (data.type === 'sync') {
-                state.my_data = data.my_data;
-                state.p2p = data.p2p;
-                state.assets = data.assets;
-                updateUI();
-            } else if (data.type === 'alert') {
-                showToast(data.text);
-            }
+        tg.expand(); // Разворот на весь экран
+
+        // --- КОНФИГУРАЦИЯ ИГРЫ ---
+        const BUILDINGS = {
+            "shaurma": { name: "Шаурмичная", baseCost: 1000, income: 5 },
+            "office":  { name: "Офис", baseCost: 15000, income: 50 },
+            "factory": { name: "Завод", baseCost: 150000, income: 500 },
+            "tower":   { name: "Небоскреб", baseCost: 2000000, income: 8000 }
         };
 
-        function updateUI() {
-            document.getElementById('balance').innerText = Math.floor(state.my_data.balance).toLocaleString() + ' ₽';
-            document.getElementById('crypto').innerText = state.my_data.crypto.toFixed(2) + ' CR';
-            updateBuildTab();
-            updateP2PTab();
-            updateWarTab();
+        // --- СОСТОЯНИЕ ИГРЫ ---
+        let state = {
+            balance: 5000,
+            crypto: 10.0,
+            buildings: { shaurma: 1, office: 0, factory: 0, tower: 0 },
+            marketPrice: 100.0,
+            lastTick: Date.now()
+        };
+
+        // Загрузка сохранения
+        function loadGame() {
+            const saved = localStorage.getItem('tycoon_save');
+            if (saved) {
+                state = JSON.parse(saved);
+                // Пересчет оффлайн-дохода
+                const now = Date.now();
+                const dt = (now - state.lastTick) / 1000; // в секундах
+                let income = 0;
+                for (let b in state.buildings) {
+                    income += state.buildings[b] * BUILDINGS[b].income;
+                }
+                state.balance += income * dt;
+                state.crypto += (state.buildings.tower * 0.5) * dt; // Крипта капает только с башен
+                state.lastTick = now;
+                showToast(`Оффлайн доход: +${Math.floor(income * dt)} ₽`);
+            }
         }
 
-        // --- ВКЛАДКА СТРОЙКА ---
-        const BUILDINGS = {
-            "shaurma": { name: "Шаурмичная", price: 1000, income: 5 },
-            "office":  { name: "Офис", price: 15000, income: 50 },
-            "factory": { name: "Завод", price: 150000, income: 500 },
-            "tower":   { name: "Небоскреб", price: 2000000, income: 8000 }
-        };
+        // Сохранение
+        function saveGame() {
+            localStorage.setItem('tycoon_save', JSON.stringify(state));
+        }
 
-        function updateBuildTab() {
+        // --- ИГРОВОЙ ЦИКЛ (10 раз в секунду) ---
+        function gameLoop() {
+            const now = Date.now();
+            const dt = (now - state.lastTick) / 1000;
+            
+            if (dt > 0) {
+                // Доход
+                let income = 0;
+                for (let b in state.buildings) {
+                    income += state.buildings[b] * BUILDINGS[b].income;
+                }
+                state.balance += income * dt;
+                
+                // Крипта с небоскребов
+                state.crypto += (state.buildings.tower * 0.5) * dt;
+                
+                // Колебания рынка
+                state.marketPrice = Math.max(10, state.marketPrice + (Math.random() - 0.5) * 2);
+                
+                state.lastTick = now;
+                updateUI();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
+        function updateUI() {
+            document.getElementById('ui-balance').innerText = Math.floor(state.balance).toLocaleString() + ' ₽';
+            document.getElementById('ui-crypto').innerText = state.crypto.toFixed(2) + ' CR';
+            document.getElementById('ui-market-price').innerText = state.marketPrice.toFixed(2) + ' ₽';
+        }
+
+        // --- ЛОГИКА МЕНЮ ---
+        function toggleMenu() { document.getElementById('menu').classList.toggle('open'); }
+        
+        function switchTab(tab, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            
+            if (tab === 'build') renderBuildTab();
+        }
+
+        function renderBuildTab() {
             let html = '';
             for (let [key, b] of Object.entries(BUILDINGS)) {
-                let assetInfo = state.assets[key] || {sold: 0, limit: 100};
-                let owned = state.my_data.buildings[key] || 0;
-                let isSoldOut = assetInfo.sold >= assetInfo.limit;
+                let count = state.buildings[key];
+                let cost = Math.floor(b.baseCost * Math.pow(1.15, count));
                 
                 html += `
-                <div class="card" style="opacity: ${isSoldOut ? 0.5 : 1}">
+                <div class="card">
                     <div class="card-info">
-                        <h3>${b.name} <span style="color:#8b9eb0; font-size:12px;">(У вас: ${owned})</span></h3>
+                        <h3>${b.name}</h3>
                         <p>+${b.income} ₽/сек</p>
-                        <p style="color:#ff3b30;">Свободно на рынке: ${assetInfo.limit - assetInfo.sold}</p>
+                        <p style="color:#8b9eb0; font-size:11px; margin-top:5px;">У вас: ${count} шт.</p>
                     </div>
-                    <div style="text-align:right;">
-                        <div class="card-price">${b.price.toLocaleString()} ₽</div>
-                        <button class="btn" onclick="buy('${key}')" ${isSoldOut ? 'disabled style="background:#333"' : ''}>Купить</button>
+                    <div style="width: 120px;">
+                        <div class="card-price">${cost.toLocaleString()} ₽</div>
+                        <button class="card-btn" onclick="buyBuilding('${key}')" ${state.balance < cost ? 'disabled' : ''}>Купить</button>
                     </div>
                 </div>`;
             }
             document.getElementById('tab-build').innerHTML = html;
         }
 
-        function buy(type) { ws.send(JSON.stringify({ action: 'buy_asset', type: type })); }
-
-        // --- ВКЛАДКА P2P РЫНОК ---
-        function updateP2PTab() {
-            let html = '';
-            if (state.p2p.length === 0) html = '<p style="color:#8b9eb0; text-align:center;">Пока нет лотов</p>';
+        function buyBuilding(type) {
+            let count = state.buildings[type];
+            let cost = Math.floor(BUILDINGS[type].baseCost * Math.pow(1.15, count));
             
-            state.p2p.forEach(lot => {
-                html += `
-                <div class="card">
-                    <div class="card-info">
-                        <h3>${lot.amount.toFixed(2)} CR</h3>
-                        <p>Продавец: ${lot.seller_id}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <div class="card-price">${lot.price.toLocaleString()} ₽</div>
-                        <button class="btn" onclick="buyP2P(${lot.id})">Купить</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('p2p-list').innerHTML = html;
-        }
-
-        function sellP2P() {
-            let amount = parseFloat(document.getElementById('sell-amount').value);
-            let price = parseFloat(document.getElementById('sell-price').value);
-            if (amount > 0 && price > 0) {
-                ws.send(JSON.stringify({ action: 'sell_p2p', amount: amount, price: price }));
+            if (state.balance >= cost) {
+                state.balance -= cost;
+                state.buildings[type]++;
+                saveGame();
+                renderBuildTab();
+                showToast(`Построено: ${BUILDINGS[type].name}`);
+                spawnParticles(window.innerWidth/2, window.innerHeight/2, '#ffcc00');
             }
         }
 
-        function buyP2P(id) { ws.send(JSON.stringify({ action: 'buy_p2p', id: id })); }
-
-        // --- ВКЛАДКА ВОЙНА ---
-        function updateWarTab() {
-            // Заглушка, так как для рейдов нужен список игроков (упрощено для теста)
-            document.getElementById('enemy-list').innerHTML = `<p style="color:#8b9eb0; text-align:center;">Для рейда нужен список игроков. (В разработке)</p>`;
+        function sellAllCrypto() {
+            if (state.crypto > 0) {
+                let revenue = state.crypto * state.marketPrice;
+                state.balance += revenue;
+                showToast(`Продано ${state.crypto.toFixed(1)} CR за ${Math.floor(revenue)} ₽`);
+                state.crypto = 0;
+                saveGame();
+            }
         }
 
-        // --- УТИЛИТЫ ---
-        function toggleMenu() { document.getElementById('menu').classList.toggle('open'); }
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.scroll-content').forEach(c => c.classList.add('hide'));
-            
-            if(tab === 'build') { document.querySelectorAll('.tab')[0].classList.add('active'); document.getElementById('tab-build').classList.remove('hide'); }
-            if(tab === 'p2p') { document.querySelectorAll('.tab')[1].classList.add('active'); document.getElementById('tab-p2p').classList.remove('hide'); }
-            if(tab === 'war') { document.querySelectorAll('.tab')[2].classList.add('active'); document.getElementById('tab-war').classList.remove('hide'); }
-        }
-
+        // --- УВЕДОМЛЕНИЯ ---
         function showToast(text) {
             const toast = document.getElementById('toast');
             toast.innerText = text;
@@ -198,15 +225,17 @@
             setTimeout(() => toast.classList.remove('show'), 2500);
         }
 
-        // --- ГРАФИКА ---
+        // --- ГРАФИКА (ИЗОМЕТРИЧЕСКИЙ ГОРОД) ---
         const canvas = document.getElementById('cityCanvas');
         const ctx = canvas.getContext('2d');
+        let particles = [];
+
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize);
         resize();
 
-        function draw() {
-            ctx.fillStyle = '#0a0f18';
+        function drawCity() {
+            ctx.fillStyle = '#070a10';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             const centerX = canvas.width / 2;
@@ -214,19 +243,66 @@
             
             ctx.save();
             ctx.translate(centerX, centerY);
-            ctx.scale(1, 0.5);
+            ctx.scale(1, 0.5); // Изометрия
             ctx.rotate(Math.PI / 4);
             
+            // Земля
+            const size = 70;
             for (let x = -5; x <= 5; x++) {
                 for (let y = -5; y <= 5; y++) {
                     ctx.fillStyle = (x + y) % 2 === 0 ? '#121b28' : '#182432';
-                    ctx.fillRect(x * 70, y * 70, 70, 70);
+                    ctx.fillRect(x * size, y * size, size, size);
                 }
             }
+
+            // Отрисовка зданий (в центре)
+            if (state.buildings.shaurma > 0) {
+                ctx.fillStyle = '#00ffcc'; // Шаурма
+                ctx.fillRect(-size/2 + 10, -size/2 + 10, size - 20, size - 20);
+            }
+            if (state.buildings.office > 0) {
+                ctx.fillStyle = '#ffcc00'; // Офис
+                ctx.fillRect(size/2 - 10, -size/2 + 10, size - 20, size - 20);
+            }
+            if (state.buildings.factory > 0) {
+                ctx.fillStyle = '#ff3b30'; // Завод
+                ctx.fillRect(-size/2 + 10, size/2 - 10, size - 20, size - 20);
+            }
+            
             ctx.restore();
-            requestAnimationFrame(draw);
+
+            // Партиклы
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+            ctx.globalAlpha = 1;
+            
+            requestAnimationFrame(drawCity);
         }
-        draw();
+
+        function spawnParticles(x, y, color) {
+            for(let i=0; i<20; i++) {
+                particles.push({
+                    x, y, vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, 
+                    size: Math.random()*5+2, color, life: 1
+                });
+            }
+        }
+
+        // --- СТАРТ ИГРЫ ---
+        loadGame();
+        renderBuildTab();
+        updateUI();
+        drawCity();
+        gameLoop();
+        
+        // Автосохранение каждые 5 секунд
+        setInterval(saveGame, 5000);
+
     </script>
 </body>
 </html>
